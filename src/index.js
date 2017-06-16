@@ -76,7 +76,7 @@ type NumberSize = {
 type Callback = (
   event: MouseEvent | TouchEvent,
   direction: Direction,
-  refToElement: HTMLElement,
+  newSize: NumberSize,
   delta: NumberSize,
 ) => void;
 
@@ -92,8 +92,8 @@ type Props = {
   extendsProps?: any;
   grid?: [number, number];
   bounds?: 'parent' | 'window' | HTMLElement;
-  width?: string | number;
-  height?: string | number;
+  width: string | number;
+  height: string | number;
   minWidth?: number;
   minHeight?: number;
   maxWidth?: number;
@@ -117,8 +117,6 @@ type State = {
     width: number;
     height: number;
   };
-  width: number | string;
-  height: number | string;
 }
 
 const clamp = (n: number, min: number, max: number): number => Math.max(Math.min(n, max), min);
@@ -148,6 +146,8 @@ export default class Resizable extends Component {
       bottomLeft: true,
       topLeft: true,
     },
+    width: 'auto',
+    height: 'auto',
     style: {},
     grid: [1, 1],
     lockAspectRatio: false,
@@ -158,14 +158,12 @@ export default class Resizable extends Component {
     const { width, height } = props;
     this.state = {
       isResizing: false,
-      width: typeof width === 'undefined' ? 'auto' : width,
-      height: typeof height === 'undefined' ? 'auto' : height,
       direction: 'right',
       original: {
         x: 0,
         y: 0,
         width: 0,
-        height: 0,
+        height: 0
       },
     };
     this.onResizeStart = this.onResizeStart.bind(this);
@@ -180,23 +178,14 @@ export default class Resizable extends Component {
     }
   }
 
-  componentDidMount() {
-    const size = this.size;
-    // If props.width or height is not defined, set default size when mounted.
-    this.setState({
-      width: this.state.width || size.width,
-      height: this.state.height || size.height,
-    });
-  }
-
-  componentWillReceiveProps({ width, height }: Props) {
-    if (width !== this.props.width) {
-      this.setState({ width });
-    }
-    if (height !== this.props.height) {
-      this.setState({ height });
-    }
-  }
+  // componentDidMount() {
+  //   const size = this.size;
+  //   // If props.width or height is not defined, set default size when mounted.
+  //   this.setState({
+  //     width: this.state.width || size.width,
+  //     height: this.state.height || size.height,
+  //   });
+  // }
 
   shouldComponentUpdate(nextProps: Props, nextState: State): boolean {
     return !isEqual(this.props, nextProps) || !isEqual(this.state, nextState);
@@ -230,7 +219,7 @@ export default class Resizable extends Component {
         x: clientX,
         y: clientY,
         width: size.width,
-        height: size.height,
+        height: size.height
       },
       isResizing: true,
       direction,
@@ -241,7 +230,7 @@ export default class Resizable extends Component {
     if (!this.state.isResizing) return;
     const clientX = event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
     const clientY = event instanceof MouseEvent ? event.clientY : event.touches[0].clientY;
-    const { direction, original, width, height } = this.state;
+    const { direction, original } = this.state;
     const { lockAspectRatio, minWidth, minHeight } = this.props;
     let { maxWidth, maxHeight } = this.props;
     const ratio = original.height / original.width;
@@ -318,17 +307,17 @@ export default class Resizable extends Component {
     if (this.props.grid) {
       newHeight = snap(newHeight, this.props.grid[1]);
     }
-
-    this.setState({
-      width: width !== 'auto' ? newWidth : 'auto',
-      height: height !== 'auto' ? newHeight : 'auto',
-    });
+    
     const delta = {
       width: newWidth - original.width,
       height: newHeight - original.height,
     };
+    const newSize = { 
+      width: newWidth,
+      height: newHeight
+    };
     if (this.props.onResize) {
-      this.props.onResize(event, direction, this.resizable, delta);
+      this.props.onResize(event, direction, newSize, delta);
     }
   }
 
@@ -340,7 +329,7 @@ export default class Resizable extends Component {
       height: this.size.height - original.height,
     };
     if (this.props.onResizeStop) {
-      this.props.onResizeStop(event, direction, this.resizable, delta);
+      this.props.onResizeStop(event, direction, this.size, delta);
     }
     this.setState({ isResizing: false });
   }
@@ -356,28 +345,17 @@ export default class Resizable extends Component {
     return { width, height };
   }
 
-  setSize(size: Size) {
-    this.setState({
-      width: this.state.width || size.width,
-      height: this.state.height || size.height,
-    });
-  }
-
   get style(): { width: string, height: string } {
     const size = (key: 'width' | 'height'): string => {
-      if (typeof this.state[key] === 'undefined' || this.state[key] === 'auto') return 'auto';
-      else if (/px$/.test(this.state[key].toString())) return this.state[key].toString();
-      else if (/%$/.test(this.state[key].toString())) return this.state[key].toString();
-      return `${this.state[key]}px`;
+      if (this.props[key] === 'auto') return 'auto';
+      else if (/px$/.test(this.props[key].toString())) return this.props[key].toString();
+      else if (/%$/.test(this.props[key].toString())) return this.props[key].toString();
+      return `${this.props[key]}px`;
     };
     return {
       width: size('width'),
       height: size('height'),
     };
-  }
-
-  updateSize(size: Size) {
-    this.setState({ width: size.width, height: size.height });
   }
 
   renderResizer() {
